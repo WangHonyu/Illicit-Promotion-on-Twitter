@@ -6,13 +6,23 @@ Methodology overview:
 ![](./code/methodology_overview.png)
 
 Directory structure:
+
 ├── README.md
+
 └── code
+
     ├── PIP_Analyzer
+
     │   ├── Multiclass_PIP_Classifier/
+
     │   └── PIP_Contact_Extractor/
+    
     ├── PIP_Hunter
+
     │   ├── Binary_PIP_Classifier/
+
     │   ├── Searching_Keyword_Generator/
+
     │   └── TweetCrawler/
+
     └── methodology_overview.png
