@@ -5,15 +5,46 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from urllib.parse import urlparse
 import logging
-from json2excel import to_excel
 import argparse
 import random
 import socket
+import pandas as pd
 
 logging.basicConfig(level=logging.INFO,
                     filename="cluster.log",
                     format='%(asctime)s processID %(process)d [%(name)s] %(levelname)s: %(message)s',
                     datefmt="%Y-%m-%d %H:%M:%S")
+
+def to_excel(json_file_path, save_filename):
+    with open(json_file_path,'r') as f:
+        data = [json.loads(each) for each in f.readlines()]
+    #data = random.sample(data, 5000)
+    dict_list = []
+    for each in data:
+        tmp_dict = {}
+        tmp_dict['id'] = each['id']
+        tmp_dict['author_id'] = str(each['author_id'])
+        tmp_dict['link'] = "https://twitter.com/%s/status/%s"%(str(tmp_dict['author_id']), str(tmp_dict['id']))
+        if 'ori_text' in each.keys():
+            tmp_dict['text'] = each['ori_text']
+        else:
+            tmp_dict['text'] = each['text']
+        tmp_dict['sub_category'] = each['sub_category']
+        tmp_dict['contacts'] = []
+        if 'contacts' in each:
+            for key in each['contacts']:
+                for con in each['contacts'][key]:
+                    if con != 'url_0':
+                        tmp_dict['contacts'].append(f"{key} {con}")
+        try:
+            tmp_dict['profile_text'] = each['profile_text']
+            tmp_dict['profile_contacts'] = each['profile_contacts']
+        except:
+            pass
+        dict_list.append(tmp_dict)
+    df = pd.DataFrame(dict_list)
+    #df.to_csv(save_filename,index=False)
+    df.to_excel(save_filename, index=False)
 
 def update_connection(data, connection, fqdn, subcategory=None, attr_include_author=True):
     for line in data:
@@ -79,15 +110,12 @@ def add_edges(connection, G, between_authors=False):
     return G
     
         
-def create_cybercrime_gragh(tweet_path):
+def create_cybercrime_gragh(tweet_path, save_path):
     logging.info(f'Creating a graph from cybercrime tweets...')
     
     #construct nodes and node attribute
     connection = {}
     fqdn = {}
-    if os.path.exists(f"tmp_cluster/fqdn.json"):
-        with open("tmp_cluster/fqdn.json", 'r') as f:
-            fqdn = json.load(f)
     subcategory = {'drug': set(), 'porn': set(), 'Gambling': set(), 'surrogacy': set(), 'money-laundry': set(), 'weapon': set(), 'data_leakage': set(), 'fake_document': set(), 'harassment': set()}
     files = os.listdir(tweet_path)
     files.sort(key = lambda x: int(x[:-5]))
@@ -95,15 +123,13 @@ def create_cybercrime_gragh(tweet_path):
         with open(file, 'r') as f:
             tweets = [json.loads(each) for each in f.readlines()]
         update_connection(tweets, connection, fqdn, subcategory=subcategory)
-    with open("tmp_cluster/fqdn.json", 'w') as f:
-        json.dump(fqdn, f)
     logging.info(f'{len(connection)} contacts')
         
-    with open('tmp_cluster/subcategory.json', 'w') as f:
+    with open(f'{save_path}/subcategory.json', 'w') as f:
         json.dump({each: list(subcategory[each]) for each in subcategory}, f)
-    with open('tmp_cluster/graph.json', 'w') as f:
+    with open(f'{save_path}/graph.json', 'w') as f:
         json.dump({each: list(connection[each]) for each in connection}, f)
-    logging.info("view nodes in tmp_cluster/graph.json")
+    logging.info(f"view nodes in {save_path}/graph.json")
     
     #add edges and remove self-circles
     logging.info("Generating networkx Graph...")
@@ -116,15 +142,13 @@ def create_cybercrime_gragh(tweet_path):
             pass
             
     # save graph to file
-    with open('tmp_cluster/cybercrime.pickle', 'wb') as f:
+    with open(f'{save_path}/cybercrime.pickle', 'wb') as f:
         pickle.dump(G, f)
-    logging.info(f'Graph({G.number_of_nodes()} nodes and {G.number_of_edges()} edges) created and saved at tmp_cluster/cybercrime.pickle')
+    logging.info(f'Graph({G.number_of_nodes()} nodes and {G.number_of_edges()} edges) created and saved at {save_path}/cybercrime.pickle')
     return connection, subcategory, fqdn, G
 
 
 def find_operators(S, fqdn, profiles):
-    #S = nx.Graph()
-    
     #construct node attribute
     author_ids = set()
     for node in S.nodes:
@@ -257,48 +281,12 @@ def find_campaign(connection, subcategory, fqdn, G, tweet_path, user_path, dump)
             with open(f'cc_subgraph/{i}.pickle', 'wb') as f:
                 pickle.dump(S, f)
             tmp_info['pickle_path'] = f'cc_subgraph/{i}.pickle'
-            '''if i == 0:
-                edges = []
-                for u, v in S.edges():
-                    if not u.startswith('author') or not v.startswith('author'):
-                        edges.append((u, v))
-                logging.info(f"subgraph0_{i}: {S.number_of_nodes()} nodes and {S.number_of_edges()} edges")
-                for u, v in edges:
-                    S.remove_edge(u, v)
-                logging.info(f"subgraph0_{i}: {S.number_of_nodes()} nodes and {S.number_of_edges()} edges")
-                sys.exit()
-                biggest_cc = sorted(nx.connected_components(G), key=len, reverse=True)
-                biggest_cc = [S.subgraph(c).copy() for c in biggest_cc]
-                biggest_cc = [each for each in biggest_cc if each.number_of_nodes() > 1]
-                logging.info(f"{len(biggest_cc)} connected components in the biggest subgraph after removing edges connected with contact-type nodes")
-                for j, C in enumerate(biggest_cc):
-                    logging.info(f"subgraph0_{i}: {C.number_of_nodes()} nodes and {C.number_of_edges()} edges")
-                    if C.number_of_nodes() < 2000:
-                        visualize(C, connection, f"cc_subgraph/0_{j}.jpg", tmp_info, with_labels=False)
-                        visualize(C, connection, f"cc_subgraph/0_{j}_with_labels.jpg", tmp_info, with_labels=True)
-            elif i < 100:'''
-            if i > 0 and i < 100:
-                if i == 15:
-                    C = nx.Graph()
-                    C.add_node('author 1593935063216844800')
-                    C.add_node('author 1593948613675081729')
-                    C.add_node('wechat SGK9527')
-                    for u, v, attr in S.edges(data=True):
-                        if u in C.nodes() and v in C.nodes():
-                            C.add_edge(u, v)
-                            if 'connection' in attr:
-                                C.edges[u, v]['connection'] = attr['connection']
-                    visualize(C, connection, f'cc_subgraph/{i}.jpg', tmp_info, with_labels=False)
-                    visualize(C, connection, f'cc_subgraph/{i}_with_labels.jpg', tmp_info, with_labels=True)
-                else:
-                    visualize(S, connection, f'cc_subgraph/{i}.jpg', tmp_info, with_labels=False)
-                    visualize(S, connection, f'cc_subgraph/{i}_with_labels.jpg', tmp_info, with_labels=True)
+            visualize(S, connection, f'cc_subgraph/{i}.jpg', tmp_info, with_labels=False)
+            visualize(S, connection, f'cc_subgraph/{i}_with_labels.jpg', tmp_info, with_labels=True)
         if dump:
             get_cc_tweets(S, connection, tweet_path, user_path, f'cc_subgraph/{i}.json', tmp_info)
         cluster_info(connection, S, tmp_info)
         cc_info.append(tmp_info)
-    with open("tmp_cluster/fqdn.json", 'w') as f:
-        json.dump(fqdn, f)
     
     analyse(cc_info)
     return cc_info, cc_subgraph_set, profiles, fqdn
@@ -306,8 +294,10 @@ def find_campaign(connection, subcategory, fqdn, G, tweet_path, user_path, dump)
 
 def parse_args():
     parse = argparse.ArgumentParser(description='Clustering')
-    parse.add_argument('-c','--clear', action='store_true') 
     parse.add_argument('-d', '--dump', action='store_true')
+    parse.add_argument('-t','--tweet_path', type=str, help='The tweet file path')
+    parse.add_argument('-u','--user_path', type=str, help='The user profile file path')
+    parse.add_argument('-s','--save_path', type=str, help='The saving path')
     args = parse.parse_args()
     return args
 
@@ -467,40 +457,14 @@ def across_campaign(subgraphs, profiles, fqdn):
     
 
 if __name__ == '__main__':  
-    logging.info('')
-    tweet_path = '/data/hongyuwang/data/CP/splited_tweets'
-    user_path = '/data/hongyuwang/data/CP/splited_users'
-    
-    #test
-    '''with open('graph.json', 'r') as f:
-        connection = json.load(f)
-    for i in reversed(range(10)):
-        with open(f'cc_subgraph/{i}.pickle', 'rb') as f:
-            G = pickle.load(f)
-        logging.info("visualizing")
-        logging.info(f"{G.number_of_nodes()} nodes and {G.number_of_edges()} edges")
-        visualize(G, connection, f'cc_subgraph/{i}.jpg', {})
-    sys.exit()'''
-    #test
-    
     args = parse_args()
-    if args.clear:
-        if not os.path.exists('tmp_cluster'):
-            os.mkdir('tmp_cluster')
-        logging.info('Clear previous results: cc_subgraph/*')
-        connection, subcategory, fqdn, G = create_cybercrime_gragh(tweet_path)
-    else:
-        with open('tmp_cluster/graph.json', 'r') as f:
-            connection = json.load(f)
-        with open(f'tmp_cluster/cybercrime.pickle', 'rb') as f:
-            G = pickle.load(f)
-        with open('tmp_cluster/subcategory.json', 'r') as f:
-            subcategory = json.load(f)
-        with open('tmp_cluster/fqdn.json', 'r') as f:
-            fqdn = json.load(f)
+    tweet_path = args.tweet_path
+    user_path = args.user_path
+    save_path = args.save_path
 
+    os.mkdir(save_path)
+    connection, subcategory, fqdn, G = create_cybercrime_gragh(tweet_path)
     cc_info, subgraphs, profiles, fqdn = find_campaign(connection, subcategory, fqdn, G, tweet_path, user_path, dump=args.dump)
-    
-    #across_campaign(subgraphs, profiles, fqdn)
+    across_campaign(subgraphs, profiles, fqdn)
     
     logging.info("Finished.")

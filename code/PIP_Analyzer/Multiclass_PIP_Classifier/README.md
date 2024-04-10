@@ -7,6 +7,10 @@ paddlenlp == 2.5.0
 paddlepaddle == 2.4.1
 ```
 
+### Training and Testing
+
+Code for training and testing is in [jupyter notebook]().
+
 ### Predict
 Before running, please fill in the model path in `settings.py`.
 ```

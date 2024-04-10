@@ -1,6 +1,6 @@
 ## Searching Keyword Generator
 
-Usage: `python Searching_Keyword_Generator.py -d datapath -s savepath -b blacklist_path`
+`python Searching_Keyword_Generator.py -d datapath -s savepath -b blacklist_path`
 
 Parameters:
 
