@@ -13,7 +13,7 @@ In this repository, the source code of the project is released for reproduction 
 ![methodology_overview](./code/methodology_overview.png)
 
 ### Data
-As for data, we release the training and testing dataset of the machine learning models, as well as PIPs sampled from each illicit category. To avoid misuse by miscreants, the full dataset of PIPs and PIP-contacts will be provided upon request and background checking. Please contact wanghongyu@mail.ustc.edu.cn to apply.
+As for data, we release the training and testing dataset of the machine learning models, as well as PIPs sampled from each illicit category. To avoid misuse by miscreants, the full dataset of PIPs and PIP-contacts will be provided upon request and background checking. Please contact the authors to request access.
 
 ### Directory structure
 ```
